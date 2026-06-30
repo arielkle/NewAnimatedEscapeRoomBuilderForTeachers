@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>עורך חדר בריחה דיגיטלי - פלטפורמת מורים</title>
+    
+    <!-- ספריות עיצוב ופונטים -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { font-family: 'Assistant', sans-serif; background-color: #0b1120; color: #e2e8f0; overflow-x: hidden; }
+        
+        /* פונט מכונת כתיבה למסתורין */
+        .theme-font { font-family: 'Courier New', Courier, monospace; letter-spacing: -0.5px; } 
+        
+        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(6, 182, 212, 0); } 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); } }
+        .active-level { border-color: #06b6d4; background-color: #1e293b; animation: pulse-border 2s infinite; }
+
+        /* אזורים חמים לעריכה */
+        .hotspot-edit { border: 4px solid #06b6d4; background: rgba(6, 182, 212, 0.2); box-shadow: 0 0 15px rgba(6,182,212,0.5); z-index: 10; cursor: crosshair; }
+        
+        /* עיצוב פס גלילה */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0b1120; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #0ea5e9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0284c7; }
+
+        /* עזרים לטקסט אנגלית/לינקים וסוגי שלבים */
+        .dir-ltr { direction: ltr; }
+        .placeholder-right::placeholder { text-align: right; direction: rtl; }
+        .type-pill { transition: all 0.2s; cursor: pointer; border: 1px solid #334155; opacity: 0.6; }
+        .type-pill.active { opacity: 1; border-color: #06b6d4; background-color: rgba(6, 182, 212, 0.1); }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden text-white">
+
+    <!-- מסך פתיחה: יצירה או טעינה -->
+    <div id="screen-intro" class="flex-1 flex flex-col items-center justify-center p-6 bg-slate-950 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 to-[#0b1120]">
+        <i class="fas fa-database text-cyan-500 text-6xl mb-6 opacity-80"></i>
+        <h1 class="text-6xl font-black text-cyan-400 mb-2 drop-shadow-[0_0_15px_rgba(6,182,212,0.5)] theme-font text-center">מחולל חדרי בריחה</h1>
+        <p class="text-xl text-slate-400 mb-12 tracking-widest text-center">פלטפורמת העריכה למורים ויוצרים</p>
+        
+        <div class="max-w-xl w-full">
+            <div class="bg-slate-900 rounded-3xl p-10 border border-slate-700 shadow-2xl flex flex-col items-center text-center relative overflow-hidden group">
+                <div class="absolute inset-0 bg-cyan-500/5 group-hover:bg-cyan-500/10 transition-colors"></div>
+                <div class="w-20 h-20 bg-cyan-900 border border-cyan-500 rounded-full flex items-center justify-center mb-6 shadow-[0_0_15px_rgba(6,182,212,0.5)] z-10">
+                    <i class="fas fa-magic text-cyan-300 text-3xl"></i>
+                </div>
+                <h2 class="text-3xl font-bold mb-4 z-10 text-cyan-100">בניית חדר בריחה</h2>
+                <p class="text-slate-400 mb-8 z-10">צרו חדר חדש מתמונות בסיס, או המשיכו לערוך פרויקט קיים.</p>
+                <div class="flex flex-col gap-4 w-full z-10">
+                    <label class="bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 text-white px-8 py-4 rounded-xl font-bold text-xl cursor-pointer transition transform hover:scale-105 block shadow-lg">
+                        <i class="fas fa-plus-circle ml-2"></i> יצירת חדר חדש (העלאת תמונה)
+                        <input type="file" class="hidden" accept="image/*,image/gif" onchange="handleNewGame(event)">
+                    </label>
+                    <label class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-cyan-300 px-8 py-3 rounded-xl font-bold cursor-pointer transition block">
+                        <i class="fas fa-folder-open ml-2"></i> המשך עריכת פרויקט (טעינת JSON)
+                        <input type="file" class="hidden" accept=".json" onchange="handleLoadGame(event)">
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- מסך המורה (עריכה) -->
+    <div id="screen-teacher" class="hidden flex-1 flex flex-col bg-[#0b1120] overflow-hidden">
+        <header class="bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center shadow-lg z-30 shrink-0">
+            <h1 class="text-2xl font-bold text-cyan-400 theme-font flex items-center gap-3">
+                <i class="fas fa-laptop-code text-cyan-600"></i> עורך חדר בריחה
+            </h1>
+            <div class="flex gap-4">
+                <button onclick="location.reload()" class="bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 px-4 py-2 rounded-lg flex items-center gap-2 transition text-sm shadow-md" title="חזרה למסך הפתיחה">
+                    <i class="fas fa-home"></i> מסך הבית
+                </button>
+                <button onclick="saveProjectFile()" class="bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 text-white px-6 py-2 rounded-lg flex items-center gap-2 transition text-sm font-bold shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                    <i class="fas fa-download"></i> שמירת פרויקט (JSON)
+                </button>
+            </div>
+        </header>
+
+        <div class="flex-1 flex overflow-hidden">
+            <!-- סרגל צד למורה -->
+            <aside class="w-72 bg-slate-900 border-l border-slate-800 p-4 flex flex-col gap-4 z-20 shrink-0 h-full overflow-hidden shadow-xl">
+                <div class="flex justify-between items-center mb-2 shrink-0">
+                    <h2 class="font-bold text-lg text-slate-300 uppercase tracking-widest text-sm">שלבי החדר</h2>
+                    <label class="bg-cyan-700 hover:bg-cyan-600 border border-cyan-500 w-8 h-8 rounded-full cursor-pointer transition shadow-[0_0_10px_rgba(6,182,212,0.3)] flex items-center justify-center text-white" title="הוספת תמונה חדשה אחרי התמונה המסומנת">
+                        <i class="fas fa-plus"></i>
+                        <input type="file" class="hidden" accept="image/*,image/gif" onchange="addLevelFromFile(event)">
+                    </label>
+                </div>
+                <div id="teacher-sidebar-levels" class="space-y-4 overflow-y-auto flex-1 pr-2 pb-10">
+                    <!-- רשימת השלבים תיווצר כאן אוטומטית -->
+                </div>
+            </aside>
+
+            <!-- אזור העריכה המרכזי -->
+            <main class="flex-1 overflow-y-auto p-6 bg-[#0b1120] shadow-inner relative">
+                <div id="teacher-main-content" class="w-full max-w-6xl mx-auto flex flex-col items-center gap-6 pb-16 pt-4">
+                    
+                    <!-- אזור הוספת וידאו לשלב -->
+                    <div class="w-full bg-slate-900/80 p-4 rounded-xl border border-indigo-900/50 shadow-lg shrink-0 backdrop-blur-sm">
+                        <label class="text-xs font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2 mb-2">
+                            <i class="fab fa-youtube text-red-500 text-base"></i> סרטון פתיח לשלב (קישור יוטיוב - אופציונלי):
+                        </label>
+                        <input id="teacher-input-video" type="text" class="w-full bg-[#0b1120] border border-slate-700 rounded-lg px-4 py-2 text-indigo-300 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 focus:outline-none transition-all dir-ltr text-left placeholder-right" placeholder="הדביקו כאן קישור ליוטיוב (למשל: https://www.youtube.com/watch?v=...)">
+                    </div>
+
+                    <!-- הגדרת סוג תמונה -->
+                    <div id="teacher-type-selector" class="w-full flex justify-center gap-4 bg-slate-900/50 p-3 rounded-2xl border border-slate-800 shrink-0">
+                        <span class="text-xs font-bold text-slate-500 uppercase self-center ml-2">סוג השלב:</span>
+                        <div onclick="setLevelType('intro')" id="type-intro" class="type-pill px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                            <i class="fas fa-door-open"></i> תמונת פתיחה
+                        </div>
+                        <div onclick="setLevelType('puzzle')" id="type-puzzle" class="type-pill px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                            <i class="fas fa-puzzle-piece"></i> חידת קוד
+                        </div>
+                        <div onclick="setLevelType('end')" id="type-end" class="type-pill px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                            <i class="fas fa-flag-checkered"></i> תמונת סיום
+                        </div>
+                    </div>
+
+                    <!-- תמונה ואזור לחיץ -->
+                    <div id="teacher-image-container" class="relative shadow-[0_0_30px_rgba(0,0,0,0.8)] border border-slate-700 rounded-lg overflow-hidden bg-black shrink-0 transition-all duration-300">
+                        <img id="teacher-image" src="" alt="חידה" class="w-full h-full object-fill block pointer-events-none select-none opacity-90">
+                        <div id="teacher-hotspot" class="absolute hotspot-edit"></div>
+                        <div id="teacher-hotspot-hint" class="absolute top-4 right-4 bg-black/80 backdrop-blur-md px-4 py-2 rounded-lg text-xs font-bold border border-cyan-500/50 text-cyan-300 shadow-[0_0_10px_rgba(6,182,212,0.3)] theme-font">
+                            <i class="fas fa-crosshairs mr-1"></i> סמנו מלבן גרירה על התמונה
+                        </div>
+                        
+                        <!-- כפתור החלפת תמונה -->
+                        <label class="absolute top-4 left-4 bg-indigo-600/90 hover:bg-indigo-500 px-4 py-2 rounded-lg text-xs font-bold border border-indigo-400 text-white shadow-lg cursor-pointer transition flex items-center gap-2">
+                            <i class="fas fa-sync-alt"></i> החלפת תמונה
+                            <input type="file" class="hidden" accept="image/*,image/gif" onchange="replaceImageFromFile(event)">
+                        </label>
+                    </div>
+
+                    <!-- פאנל עריכה לשאלות ותשובות -->
+                    <div id="teacher-edit-panel" class="w-full bg-slate-900/80 p-6 rounded-xl border border-slate-700 grid grid-cols-2 gap-6 shadow-xl shrink-0 backdrop-blur-sm">
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs font-bold text-cyan-500 uppercase tracking-widest flex items-center gap-2">
+                                <i class="fas fa-comment-dots"></i> השאלה לתלמיד:
+                            </label>
+                            <textarea id="teacher-input-question" rows="2" class="bg-[#0b1120] border border-slate-700 rounded-lg px-4 py-3 text-slate-200 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-all resize-none" placeholder="הקלידו את השאלה..."></textarea>
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            <label class="text-xs font-bold text-cyan-500 uppercase tracking-widest flex items-center gap-2">
+                                <i class="fas fa-key"></i> התשובה הנכונה (קוד):
+                            </label>
+                            <input id="teacher-input-answer" type="text" class="bg-[#0b1120] border border-slate-700 rounded-lg px-4 py-3 text-cyan-300 h-full focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none transition-all theme-font text-lg" placeholder="הפתרון המדויק (רגיש לרווחים)...">
+                        </div>
+                    </div>
+                    
+                    <!-- הודעת ניווט עבור מסכי פתיחה/סיום -->
+                    <div id="teacher-nav-msg" class="hidden w-full bg-indigo-900/40 p-6 rounded-xl border border-indigo-700 text-center shadow-xl shrink-0 backdrop-blur-sm">
+                        <p id="nav-msg-text" class="text-indigo-200 font-bold tracking-widest text-center"></p>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- חתימה אישית בתחתית העמוד -->
+    <footer class="p-4 bg-slate-950/80 border-t border-slate-900 flex flex-col items-center shrink-0 z-50">
+        <img src="pic.png" alt="אריאל קלפנר" class="w-10 h-10 rounded-full mb-2 border border-cyan-500/40 shadow-lg object-cover" onerror="this.style.display='none'">
+        <p class="text-[10px] md:text-xs text-slate-500 theme-font tracking-wide text-center">
+            אריאל קלפנר, טכנופדגוגיה, בינה מלאכותית והערכה בחינוך - 050-9540538
+        </p>
+    </footer>
+
+    <!-- הלוגיקה (JavaScript) -->
+    <script>
+        // פונקציה להצגת הודעות מערכת במקום alert()
+        function showCustomAlert(msg, isError = true) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `fixed top-6 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-2xl z-[9999] font-bold theme-font transition-all ${isError ? 'bg-red-600/90 border border-red-400' : 'bg-cyan-600/90 border border-cyan-400'} text-white`;
+            alertDiv.innerText = msg;
+            document.body.appendChild(alertDiv);
+            setTimeout(() => {
+                alertDiv.style.opacity = '0';
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 3000);
+        }
+
+        // --- State ---
+        let levels = [];
+        let currentLevelIndex = 0;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+
+        // --- DOM Elements ---
+        const screens = {
+            intro: document.getElementById('screen-intro'),
+            teacher: document.getElementById('screen-teacher')
+        };
+
+        const teacherDOM = {
+            sidebar: document.getElementById('teacher-sidebar-levels'),
+            mainContent: document.getElementById('teacher-main-content'),
+            imgContainer: document.getElementById('teacher-image-container'),
+            img: document.getElementById('teacher-image'),
+            hotspot: document.getElementById('teacher-hotspot'),
+            hotspotHint: document.getElementById('teacher-hotspot-hint'),
+            inputQ: document.getElementById('teacher-input-question'),
+            inputA: document.getElementById('teacher-input-answer'),
+            inputVideo: document.getElementById('teacher-input-video'),
+            editPanel: document.getElementById('teacher-edit-panel'),
+            navMsg: document.getElementById('teacher-nav-msg'),
+            navText: document.getElementById('nav-msg-text')
+        };
+
+        // --- Resize Logic ---
+        function resizeImages() {
+            if (levels.length === 0 || screens.teacher.classList.contains('hidden')) return;
+            const ratio = 16 / 9;
+            
+            const container = teacherDOM.imgContainer;
+            if(container && container.parentElement) {
+                const parentWidth = container.parentElement.clientWidth * 0.95; 
+                const maxH = window.innerHeight * 0.55; 
+                let w = parentWidth; let h = w / ratio;
+                if (h > maxH) { h = maxH; w = h * ratio; }
+                container.style.width = Math.floor(w) + 'px';
+                container.style.height = Math.floor(h) + 'px';
+            }
+        }
+        window.addEventListener('resize', resizeImages);
+
+        // --- Navigation ---
+        function showScreen(screenName) {
+            Object.values(screens).forEach(s => s.classList.add('hidden'));
+            screens[screenName].classList.remove('hidden');
+        }
+
+        function setLevelType(type) {
+            if (!levels[currentLevelIndex]) return;
+            levels[currentLevelIndex].type = type;
+            renderTeacherUI();
+        }
+
+        // --- Core Functions ---
+        async function processImage(file) {
+            return new Promise((resolve) => {
+                const isGif = file.type === 'image/gif';
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    if (isGif) {
+                        resolve(e.target.result); // תמיכה באנימציות
+                    } else {
+                        const img = new Image();
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_WIDTH = 1280; const MAX_HEIGHT = 1280;
+                            let width = img.width; let height = img.height;
+                            if (width > height) { if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; } } 
+                            else { if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; } }
+                            canvas.width = width; canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, width, height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.8));
+                        };
+                        img.src = e.target.result;
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function handleNewGame(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            levels = [];
+            currentLevelIndex = 0;
+            addLevelFromFile(event);
+            showScreen('teacher');
+        }
+
+        function handleLoadGame(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    levels = JSON.parse(e.target.result);
+                    // תמיכה לאחור בחדרים ישנים
+                    levels = levels.map(l => ({...l, type: l.type || 'puzzle'})); 
+                    if(!levels || levels.length === 0) throw new Error("Empty file");
+                    currentLevelIndex = 0;
+                    showScreen('teacher'); 
+                    renderTeacherUI();
+                } catch (err) { 
+                    showCustomAlert("שגיאה: קובץ ה-JSON אינו תקין או שאינו שייך למערכת."); 
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        async function replaceImageFromFile(event) {
+            const file = event.target.files ? event.target.files[0] : null;
+            if (!file || !levels[currentLevelIndex]) return;
+            const imgData = await processImage(file);
+            levels[currentLevelIndex].image = imgData;
+            renderTeacherUI();
+            event.target.value = ''; // איפוס Input
+        }
+
+        async function addLevelFromFile(event) {
+            const file = event.target.files ? event.target.files[0] : null;
+            if (!file) return;
+            
+            const imgData = await processImage(file);
+            const newLevel = {
+                id: Date.now(),
+                type: 'puzzle',
+                videoUrl: '', 
+                question: 'מהי התשובה לחידה זו?',
+                answer: '',
+                hotspot: { x: 40, y: 40, width: 20, height: 20 },
+                image: imgData
+            };
+
+            // הוספה אחרי התמונה המסומנת
+            if (levels.length === 0) { 
+                levels.push(newLevel); 
+                currentLevelIndex = 0; 
+            } else { 
+                levels.splice(currentLevelIndex + 1, 0, newLevel); 
+                currentLevelIndex++; 
+            }
+            
+            renderTeacherUI();
+            if(event.target) event.target.value = ''; // איפוס
+        }
+
+        function removeLevel(index) {
+            levels.splice(index, 1);
+            if (currentLevelIndex >= levels.length && levels.length > 0) {
+                currentLevelIndex = levels.length - 1;
+            }
+            renderTeacherUI();
+        }
+
+        function saveProjectFile() {
+            if (levels.length === 0) { showCustomAlert("אין נתונים לשמירה."); return; }
+            const data = JSON.stringify(levels);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url; link.download = 'escape-room-project.json'; link.click();
+            showCustomAlert("הקובץ נשמר בהצלחה!", false);
+        }
+
+        // --- Teacher UI Rendering ---
+        function renderTeacherUI() {
+            if (levels.length === 0) {
+                teacherDOM.mainContent.style.visibility = 'hidden';
+                teacherDOM.sidebar.innerHTML = '<p class="text-slate-500 text-center text-sm mt-10 italic">העלו תמונה כדי להוסיף חידה</p>';
+                return;
+            }
+            teacherDOM.mainContent.style.visibility = 'visible';
+            
+            // 1. רנדור סרגל צד
+            teacherDOM.sidebar.innerHTML = '';
+            levels.forEach((lvl, idx) => {
+                const div = document.createElement('div');
+                div.className = `group relative p-2 rounded-xl border border-slate-700 cursor-pointer transition-all ${currentLevelIndex === idx ? 'active-level' : 'bg-slate-800 hover:border-slate-500'}`;
+                div.onclick = () => { currentLevelIndex = idx; renderTeacherUI(); };
+                
+                let typeIcon = lvl.type === 'intro' ? 'fa-door-open text-indigo-400' : (lvl.type === 'end' ? 'fa-flag-checkered text-green-400' : 'fa-puzzle-piece text-cyan-200');
+
+                div.innerHTML = `
+                    <img src="${lvl.image}" class="w-full h-20 object-cover rounded-md mb-2 opacity-80" alt="תמונה">
+                    <div class="text-sm font-bold flex justify-between items-center px-1 text-cyan-200">
+                        <div class="flex items-center gap-2">
+                            <i class="fas ${typeIcon} text-xs"></i> <span>שלב ${idx + 1}</span>
+                        </div>
+                        ${lvl.videoUrl ? '<i class="fas fa-video text-indigo-400 text-xs"></i>' : ''}
+                    </div>
+                    <button onclick="event.stopPropagation(); removeLevel(${idx})" class="absolute top-3 left-3 bg-red-600/90 p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition shadow-lg hover:bg-red-500 backdrop-blur-sm" title="מחיקת שלב">
+                        <i class="fas fa-trash text-xs text-white"></i>
+                    </button>
+                `;
+                teacherDOM.sidebar.appendChild(div);
+            });
+
+            // 2. רנדור תוכן מרכזי
+            const current = levels[currentLevelIndex];
+            
+            teacherDOM.img.onload = resizeImages;
+            teacherDOM.img.src = current.image;
+            if (teacherDOM.img.complete) { resizeImages(); } 
+            
+            // עדכון כפתורי סוג שלב
+            document.querySelectorAll('.type-pill').forEach(p => p.classList.remove('active'));
+            const activePill = document.getElementById(`type-${current.type || 'puzzle'}`);
+            if (activePill) activePill.classList.add('active');
+
+            // תמיד מציגים את האזור החם (hotspot)
+            teacherDOM.hotspot.classList.remove('hidden');
+            teacherDOM.hotspotHint.classList.remove('hidden');
+            updateHotspotVisual(teacherDOM.hotspot, current.hotspot);
+
+            // ניהול תצוגה לפי סוג
+            if (current.type === 'puzzle') {
+                teacherDOM.editPanel.classList.remove('hidden');
+                teacherDOM.navMsg.classList.add('hidden');
+                teacherDOM.inputQ.value = current.question || '';
+                teacherDOM.inputA.value = current.answer || '';
+            } else {
+                teacherDOM.editPanel.classList.add('hidden');
+                teacherDOM.navMsg.classList.remove('hidden');
+                teacherDOM.navText.innerHTML = current.type === 'intro' 
+                    ? '<i class="fas fa-info-circle ml-2 text-indigo-400"></i> תמונת פתיחה - סמנו את האזור ללחיצה כדי לעבור לשלב הבא.'
+                    : '<i class="fas fa-flag-checkered ml-2 text-green-400"></i> תמונת סיום - סמנו את האזור ללחיצה לסיום חדר הבריחה.';
+            }
+
+            teacherDOM.inputVideo.value = current.videoUrl || ''; 
+        }
+
+        teacherDOM.inputQ.addEventListener('input', (e) => { if(levels[currentLevelIndex]) levels[currentLevelIndex].question = e.target.value; });
+        teacherDOM.inputA.addEventListener('input', (e) => { if(levels[currentLevelIndex]) levels[currentLevelIndex].answer = e.target.value; });
+        teacherDOM.inputVideo.addEventListener('input', (e) => { 
+            if(levels[currentLevelIndex]) { levels[currentLevelIndex].videoUrl = e.target.value; renderTeacherUI(); } 
+        });
+
+        // --- Hotspot Drawing Logic ---
+        teacherDOM.imgContainer.addEventListener('mousedown', (e) => {
+            if(levels.length === 0) return;
+            const rect = teacherDOM.imgContainer.getBoundingClientRect();
+            dragStart.x = ((e.clientX - rect.left) / rect.width) * 100;
+            dragStart.y = ((e.clientY - rect.top) / rect.height) * 100;
+            isDragging = true;
+            levels[currentLevelIndex].hotspot = { x: dragStart.x, y: dragStart.y, width: 0, height: 0 };
+            updateHotspotVisual(teacherDOM.hotspot, levels[currentLevelIndex].hotspot);
+        });
+
+        teacherDOM.imgContainer.addEventListener('mousemove', (e) => {
+            if(!isDragging || levels.length === 0) return;
+            const rect = teacherDOM.imgContainer.getBoundingClientRect();
+            const currentX = ((e.clientX - rect.left) / rect.width) * 100;
+            const currentY = ((e.clientY - rect.top) / rect.height) * 100;
+            
+            const x = Math.min(dragStart.x, currentX);
+            const y = Math.min(dragStart.y, currentY);
+            const width = Math.abs(currentX - dragStart.x);
+            const height = Math.abs(currentY - dragStart.y);
+            
+            levels[currentLevelIndex].hotspot = {
+                x: Math.max(0, Math.min(100, x)),
+                y: Math.max(0, Math.min(100, y)),
+                width: Math.min(width, 100 - x),
+                height: Math.min(height, 100 - y)
+            };
+            updateHotspotVisual(teacherDOM.hotspot, levels[currentLevelIndex].hotspot);
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+        function updateHotspotVisual(element, hotspotData) {
+            if(!element || !hotspotData) return;
+            element.style.top = hotspotData.y + "%";
+            element.style.left = hotspotData.x + "%";
+            element.style.width = hotspotData.width + "%";
+            element.style.height = hotspotData.height + "%";
+        }
+
+    </script>
+</body>
+</html>
